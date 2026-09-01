@@ -1,0 +1,7 @@
+python-dotenv==1.0.1
+
+# send requests to GDELT to get data
+requests==2.32.3
+
+# Apache Spark API for python, used for processing data
+pyspark==3.5.1
