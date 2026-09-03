@@ -110,26 +110,32 @@ def download_file(url):
         return  # skip this file if there's an error
 
     # save byte data to the file path
-    with z.open(output_path, "wb") as f: # "wb" stands for write binary
+    with open(output_path, "wb") as f: # "wb" stands for write binary
         f.write(csv_bytes)
 
     return
+
     
-
-    # # Filter to South Africa (FIPS code 'SF', not ISO 'ZA')
-    # sa_rows = df[df["ActionGeo_CountryCode"] == "SF"]
-    # print(f"Rows about South Africa in this file: {len(sa_rows)}")
-
-    # if len(sa_rows) > 0:
-    #     print("\nA sample of the South African rows:")
-    #     print(sa_rows[["SQLDATE", "ActionGeo_FullName", "EventRootCode", "AvgTone"]].head())
-    # else:
-    #     print("No South African rows in this particular file -- that's normal for "
-    #           "a single 15-minute snapshot. Try a different file if you want to see one.")
-
-
 def main():
-    pass
+    os.makedirs(OUTPUT_DIR, exist_ok=True) # make directory
+    urls = get_matching_urls()
+
+
+    print(f"-[STATS]- Found {len(urls)} files matching date range and file type.\n")
+ 
+    counts = {"downloaded": 0, "skipped": 0, "failed": 0}
+ 
+    for i, url in enumerate(urls, start=1):
+        result = download_file(url)
+        counts["downloaded"] += 1
+ 
+        if i % 100 == 0 or i == len(urls):
+            print(f"-[STATS]- Progress: {i}/{len(urls)}  "
+                  f"(-[STATS]- downloaded: {counts['downloaded']}, "
+                  f"-[STATS]- skipped: {counts['skipped']}, "
+                  f"-[STATS]- failed: {counts['failed']})")
+ 
+    print(f"\nCounts : {counts}")
 
 if __name__ == "__main__":
     main()
