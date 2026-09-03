@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgres:16
     container_name: sa-civic-pulse-db
-    # restart: always # what is this? should it be unless-stopped?
+    restart: unless-stopped
 
     # postgres environment variables
     environment:
@@ -11,7 +11,7 @@ services:
       POSTGRES_DB: sa_civic_pulse
 
     ports:
-      - "5432:5432" # accessible port number, connect from outside docker (like from load.py)
+      - "5432:5432" # postgres port number and accessible port number
     volumes:
       - postgres_data:/var/lib/postgresql/data # keeps data even if container restarts (db layer)
 
