@@ -1,57 +1,17 @@
-# TODO: day 4 + 5 (and 6 i think)
 """
-open pyspark, get data, idk idk get data together ( this layer is cleaning and shit)
-
-PySpark is the Python API for Apache Spark, 
-designed to process large-scale datasets distributed across clusters of machines. 
-
-Learning it revolves around understanding distributed architecture, 
-transitioning from single-node tools like pandas, 
-and mastering Spark SQL and DataFrame operations.
-
-
-NOTE !!! PySpark comes with SparkSQL. idk the format diff
-
-[1] first initialise the SparkSession
-    we use:
-
-    SparkSession.builder \
-    .appName("") \
-    .master("") \
-    .getOrCreate()
-
-[2] get data fields from example
-    iterate through the csv file and get the data in those fields
-    we use:
-
-    data = [("x", "y", "z")]
-    columns = ["xx", "yy", "zz"]
-
-    df = spark.createDataFrame(data, columns) # zip action pretty much which is neat
-
 ------------------------------------------------------------------------------------
-1] READ    -- load all the raw CSVs into one big Spark DataFrame
-2] FILTER  -- keep only South African rows
-3] SELECT  -- keep only the columns we actually care about
-4] DERIVE  -- compute new columns from existing ones (date parts, category labels)
-5] WRITE   -- save the result as parquet
+1] READ     -- load all the raw CSVs into one big Spark DataFrame
+2] FILTER   -- keep only South African rows
+3] WRITE    -- keep only the columns we actually care about
+            -- compute new columns from existing ones (date parts, category labels)
+            -- save the result as parquet
 ------------------------------------------------------------------------------------
-
-
-
+"""
 
 from pyspark.sql import SparkSession
+from pyspark.sql.types import StructType, StructField, LongType, StringType, IntegerType, FloatType
 
-def get_csv_data(csv_file):
-    csv_data = []
-
-    with() as file:
-        csv.append(file)    
-
-"""
-
-from pyspark.sql import *
-from pyspark.sql import functions as F
+from pyspark.sql import functions as func
 
 # !! get columns
 COLUMN_NAMES = [
@@ -76,11 +36,9 @@ COLUMN_NAMES = [
     "DATEADDED", "SOURCEURL",
 ]
 
-# maunally set the schema attributes with:
+# !! maunally set the schema attributes with:
 # "name", "data_type", "null" (True for optional, False for mandatory)
-
-
-GDELT_SCHEMA = StructType([
+GDELT_COLUMN_SCHEMA = StructType([
     StructField("GLOBALEVENTID", LongType(), True),
     StructField("SQLDATE", StringType(), True),
     StructField("MonthYear", StringType(), True),
@@ -144,36 +102,160 @@ GDELT_SCHEMA = StructType([
     StructField("SOURCEURL", StringType(), True),
 ])
 
+# !! path of csv files
+RAW_DIR = "data/raw/*.export.CSV"
+
+# !! where we're saving extracted and processed data
+OUTPUT_DIR = "data/processed/events"
+
+# !! event catagories taken from GDELT event cookbook 
+#    **used for "topics" in schema - basically for more analytics
+#    only the first 20 for now
+CAMEO_EVENT_CODES = {
+# CAMEOEVENTCODE : EVENTDESCRIPTION
+    "01": "Make Public Statement",
+    "02": "Appeal",
+    "03": "Express Intent to Cooperate",
+    "04": "Consult",
+    "05": "Engage in Diplomatic Cooperation",
+    "06": "Engage in Material Cooperation",
+    "07": "Provide Aid",
+    "08": "Yield",
+    "09": "Investigate",
+    "10": "Demand",
+    "11": "Disapprove",
+    "12": "Reject",
+    "13": "Threaten",
+    "14": "Protest",
+    "15": "Exhibit Force Posture",
+    "16": "Reduce Relations",
+    "17": "Coerce",
+    "18": "Assault",
+    "19": "Fight",
+    "20": "Use Unconventional Mass Violence",
+}
 
 
-# 1. Initialize SparkSession (the entry point)
-spark = SparkSession.builder \
-    .appName("SataExtraction") \
-    .master("local[*]") \
-    .getOrCreate()
+# ===============================
+def read(spark_session):
+    # built in method! :)
+    df = spark_session.read.csv(
+        RAW_DIR, 
+        sep="\t",
+        header=False,
+        schema=GDELT_COLUMN_SCHEMA
+    )
 
-# 2. Create sample data
-data = [
-    ("Alice", "Engineering", 95000),
-    ("Bob", "Marketing", 62000),
-    ("Charlie", "Engineering", 105000),
-    ("Diana", "Marketing", 75000),
-]
-columns = ["name", "department", "salary"]
+    return df
+# ===============================
 
-df = spark.createDataFrame(data, columns)
+# ===============================
+def filter(df_read):
+    # filter for south african events only "SF" -> ActionGeo_CountyCode
+    # sa_rows = df[df["ActionGeo_CountryCode"] == "SF"] <- from example
+    df_filtered = df_read.filter(func.col("ActionGeo_CountryCode") == "SF")
 
-# 3. Transform: Calculate average salary and headcount by department
-summary_df = df.groupBy("department").agg(
-    F.round(F.avg("salary"), 2).alias("avg_salary"),
-    F.count("name").alias("headcount")
-)
+    # ----------------------------------------------------------
+    df_filtered = df_filtered.withColumn(
+        "sql_date", func.to_date(func.col("SQLDATE"), "yyyyMMdd")
+    ).withColumn(
+        "month", func.month(func.col("sql_date"))
+    ).withColumn(
+        "quarter", func.quarter(func.col("sql_date"))
+    ).withColumn(
+        "date_added_ts", func.to_timestamp(func.col("DATEADDED"), "yyyyMMddHHmmss")
+    )
+ 
+    # Map EventRootCode -> category_label using the CAMEO lookup above
+    # func.create_map turns a Python dict into something Spark can use inside a column expression
+    mapping_expr = func.create_map([func.lit(x) for pair in CAMEO_EVENT_CODES.items() for x in pair])
+    df_filtered = df_filtered.withColumn("category_label", mapping_expr[func.col("EventRootCode")])
 
-print()
-print("-----------------------------")
-# 4. Action: Display the result
-summary_df.show()
-print("-----------------------------")
-print()
-# 5. Stop the session
-spark.stop()
+    # ----------------------------------------------------------
+
+    # !! keep only the columns your schema actually needs.
+    df_clean = df_filtered.select(
+        func.col("GLOBALEVENTID").alias("global_event_id"),
+        func.col("sql_date"),
+        func.col("Year").alias("year"),
+        func.col("month"),
+        func.col("quarter"),
+        func.col("ActionGeo_ADM1Code").alias("adm1_code"),
+        func.col("ActionGeo_FullName").alias("action_geo_full_name"),
+        func.col("EventRootCode").alias("event_root_code"),
+        func.col("EventBaseCode").alias("event_base_code"),
+        func.col("QuadClass").alias("quad_class"),
+        func.col("category_label"),
+        func.col("Actor1Name").alias("actor1_name"),
+        func.col("Actor1CountryCode").alias("actor1_country"),
+        func.col("Actor2Name").alias("actor2_name"),
+        func.col("Actor2CountryCode").alias("actor2_country"),
+        func.col("GoldsteinScale").alias("goldstein_scale"),
+        func.col("AvgTone").alias("avg_tone"),
+        func.col("NumMentions").alias("num_mentions"),
+        func.col("NumSources").alias("num_sources"),
+        func.col("NumArticles").alias("num_articles"),
+        func.col("SOURCEURL").alias("source_url"),
+        func.col("date_added_ts").alias("date_added"),
+    )
+
+    # ---------------------------------------------------------
+
+    print("\nSample of cleaned data:")
+    df_clean.show(5, truncate=False)
+
+    return df_clean
+# ===============================
+
+
+# ===============================
+def write(cleaned_df):
+    # ----------------------------------------------------------
+    # 5. WRITE -- save as parquet. overwrite = current script get replaced
+    # ----------------------------------------------------------
+    cleaned_df.write.mode("overwrite").parquet(OUTPUT_DIR)
+    print(f"\nWrote cleaned data to {OUTPUT_DIR}")
+# ===============================
+
+
+
+def main():
+    
+    # [1] initialize SparkSession (the entry point)
+    print("hmm")
+    spark = SparkSession.builder \
+        .appName("SACivicPulseTransform") \
+        .getOrCreate()
+    
+#--------------------------------------------------------------------------
+
+    # [2] READ 
+    df_read = read(spark)
+    total_count = df_read.count()
+    print(f"----- Loaded {total_count} total rows from all raw files.")
+
+#--------------------------------------------------------------------------
+
+    # [3] FILTER  -- keep only South African rows
+    df_filter = filter(df_read)
+
+    result_count = df_filter.count()
+    print(f"Filtered down to {result_count} South African rows "
+        f"({result_count / total_count * 100:.2f}% of total).")
+
+#--------------------------------------------------------------------------
+
+    # [4] WRITE -- save as parquet (column-oriented binary data storage format)
+    write(df_filter)
+
+#--------------------------------------------------------------------------
+
+    # [5] end session
+    spark.stop()
+
+
+
+if __name__ == "__main__":
+    main()
+
+    
