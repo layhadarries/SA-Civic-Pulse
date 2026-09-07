@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: sa-civic-pulse-db
+    restart: unless-stopped
+
+    # postgres environment variables
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: dev_password
+      POSTGRES_DB: sa_civic_pulse
+
+    ports:
+      - "5432:5432" # postgres port number and accessible port number
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # keeps data even if container restarts (db layer)
+
+volumes:
+  postgres_data:
