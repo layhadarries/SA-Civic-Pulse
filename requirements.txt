@@ -8,4 +8,5 @@ pyspark==3.5.1
 # Docker
 docker==7.2.0
 
+# reads parquet files
 pyarrow==17.0.0
