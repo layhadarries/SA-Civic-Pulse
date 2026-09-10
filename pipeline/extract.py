@@ -17,7 +17,8 @@ MASTERLIST_FILE = "masterfilelist.txt"
  
 # Sept 2025 to Aug 2026
 START_DATE = "20250901000000"   # 2025-09-01 00:00:00
-END_DATE = "20260831235959"     # 2026-08-31 23:59:59
+# END_DATE = "20260831235959"     # 2026-08-31 23:59:59
+END_DATE =  "20250908000000"    # [TEMP] only a week diff for now
 
 OUTPUT_DIR = "data/raw"
 
@@ -121,8 +122,8 @@ def main():
     urls = get_matching_urls()
 
 
-    print(f"-[STATS]- Found {len(urls)} files matching date range and file type.\n")
-    print("...downloading..")
+    # print(f"-[STATS]- Found {len(urls)} files matching date range and file type.\n")
+    # print("...downloading..")
  
     counts = {"downloaded": 0, "skipped": 0, "failed": 0}
  
@@ -130,13 +131,13 @@ def main():
         result = download_file(url)
         counts["downloaded"] += 1
  
-        if i % 100 == 0 or i == len(urls):
-            print(f"-[STATS]- Progress: {i}/{len(urls)}  "
-                  f"(-[STATS]- downloaded: {counts['downloaded']}, "
-                  f"-[STATS]- skipped: {counts['skipped']}, "
-                  f"-[STATS]- failed: {counts['failed']})")
+    #     if i % 100 == 0 or i == len(urls):
+    #         print(f"-[STATS]- Progress: {i}/{len(urls)}  "
+    #               f"downloaded: {counts['downloaded']}, "
+    #               f"skipped: {counts['skipped']}, "
+    #               f"failed: {counts['failed']})")
  
-    print(f"\nCounts : {counts}")
+    # print(f"\nCounts : {counts}")
 
 if __name__ == "__main__":
     main()

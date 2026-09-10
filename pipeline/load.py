@@ -1,78 +1,17 @@
 """
-take parquet output from transform and load into Postgres.
-
-[1] load -  event_time      (1 row per unique date)
-         -  event_location  (1 row per unique prov + fallback for country lvl event)
-         -  event_action_type (1 row per unique cameo combination)
-
-* Conflict and Mediation Event Observations
-
-GDELT
-  ↓
-Extract
-  ↓
-Transform
-  ↓
-Parquet
-  ↓
-Load with Python
-  ↓
-PostgreSQL
-  ↓
-Query / API / Dashboard / Analysis
-
-
-4 main tables in our schema
-
-                 PostgreSQL
-                     │
-       ┌─────────────┼─────────────┐
-       ↓             ↓             ↓
- event_time   event_location   event_action_type
-       │             │             │
-       └─────────────┼─────────────┘
-                     ↓
-                event_fact
-
-We need to first connect to postgres using the config properties!!
-Where? -> host + port
-Which database? -> dbname
-Who are you? -> user
-Password? -> password
-
-Why use parquet files?
-It remembers data types. 
-It's much smaller.
-It's fast to read. 
-It's the natural hand-off point between Spark and pandas. 
-Spark writes it natively -> .write.parquet(...), 
-pandas reads it natively -> pd.read_parquet(...)
-
-— no custom format-conversion code needed on either side. 
-This is genuinely the standard way these two tools talk to each other in real pipelines
-
-
------------------------
- - EVENT FACTS table -
-    global_event_id
-    date_key
-    location_id
-    event_type_id
-
-    actor1_name
-    actor1_country
-    actor2_name         
-    actor2_country      
-
-    goldstein_scale
-    avg_tone
-    num_mentions        
-    num_sources
-    num_articles
-
-    source_url          
-    date_added          
------------------------
+Takes the parquet output from transform.py and loads it into Postgres.
+ 
+Three steps, in order (dimensions must exist before the fact table can
+reference them via foreign key):
+    1. Load/upsert event_time      (one row per unique date)
+    2. Load/upsert event_location  (one row per unique province + a fallback
+                                     row for country-level-only events)
+    3. Load/upsert event_action_type (one row per unique CAMEO combination)
+    4. Look up the generated IDs, attach them to the fact rows, and insert
+       into event_fact
+ 
+Safe to re-run: every insert uses ON CONFLICT DO NOTHING, so running this
+twice on the same data won't create duplicates or error out.
 """
 
 import os
@@ -171,7 +110,7 @@ def load_event_time(connect, df):
     """
 
     execute_sql(connect, sql_query, values)
-    print(f"load - EVENT TIME - {len(values)} dates")
+    # print(f"load - EVENT TIME - {len(values)} dates")
 ## --------------------------------------------------------------- ##
 
 
@@ -211,7 +150,7 @@ def load_event_location(connect, df):
     """
 
     execute_sql(connect, sql_query, values)
-    print(f"load - EVENT LOCATION - {len(values)} locations")
+    # print(f"load - EVENT LOCATION - {len(values)} locations")
 ## --------------------------------------------------------------- ##
 
 
@@ -243,7 +182,7 @@ def load_event_aciton_type(connect, df):
     """
 
     execute_sql(connect, sql_query, values)
-    print(f"load - EVENT ACTION TYPE - {len(values)} event types")
+    # print(f"load - EVENT ACTION TYPE - {len(values)} event types")
 ## --------------------------------------------------------------- ##
 
 
@@ -356,13 +295,13 @@ def load_event_fact(connect, df, location_id_key, event_type_id_key):
     """
 
     execute_sql(connect, sql_query, values)
-    print(f"load - EVENT FACT - {len(values)} rows")
+    # print(f"load - EVENT FACT - {len(values)} rows")
 ## --------------------------------------------------------------- ##
 
 
 def main():
 
-    print("--- [1] --- Reading parquet files ---")
+    # print("--- [1] --- Reading parquet files ---")
     # [1] read parquet files using pandas
     df = pandas.read_parquet(PARQUET_DIR)
 
@@ -378,19 +317,19 @@ def main():
         location_id = fetch_location_ids(pgsql_connect)
         event_type_id = fetch_event_type_ids(pgsql_connect)
 
-        print(f"Found {len(location_id)} locations.")
+        # print(f"Found {len(location_id)} locations.")
 
-        print(f"Found {len(event_type_id)} event types.")
+        # print(f"Found {len(event_type_id)} event types.")
 
-        print("\n--- [5] --- Loading event facts ---")
+        # print("\n--- [5] --- Loading event facts ---")
 
         load_event_fact(pgsql_connect, df, location_id, event_type_id)
 
     finally:
         pgsql_connect.close()
-        print("\nPostgreSQL connection closed.")
+        # print("\nPostgreSQL connection closed.")
 
-    print("\n--- LOAD COMPLETE ---")
+    # print("\n--- LOAD COMPLETE ---")
 
 
 if __name__ == "__main__":

@@ -149,6 +149,13 @@ def read(spark_session):
     return df
 # ===============================
 
+def empty_to_null(col_name):
+    return func.when(func.trim(func.col(col_name)) == "", 
+                    func.lit(None)).otherwise(
+                    func.col(col_name)
+                    )
+
+
 # ===============================
 def filter(df_read):
     # filter for south african events only "SF" -> ActionGeo_CountyCode
@@ -183,10 +190,12 @@ def filter(df_read):
         func.col("EventBaseCode").alias("event_base_code"),
         func.col("QuadClass").alias("quad_class"),
         func.col("category_label"),
-        func.col("Actor1Name").alias("actor1_name"),
-        func.col("Actor1CountryCode").alias("actor1_country"),
-        func.col("Actor2Name").alias("actor2_name"),
-        func.col("Actor2CountryCode").alias("actor2_country"),
+        # -- eplace empty strings with NULL --
+        empty_to_null("Actor1Name").alias("actor1_name"),
+        empty_to_null("Actor1CountryCode").alias("actor1_country"),
+        empty_to_null("Actor2Name").alias("actor2_name"),
+        empty_to_null("Actor2CountryCode").alias("actor2_country"),
+        # ------------------------------------
         func.col("GoldsteinScale").alias("goldstein_scale"),
         func.col("AvgTone").alias("avg_tone"),
         func.col("NumMentions").alias("num_mentions"),
