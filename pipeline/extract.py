@@ -26,7 +26,7 @@ def get_matching_urls():
     """
     Read masterfilelist.txt and return only the event-file URLs in our date range.
     """
-    print("[1] getting masterfilelist dataaaaaaaaaaaaa")
+    # print("[1] getting masterfilelist data")
 
     urls = []
 
@@ -87,7 +87,7 @@ def download_file(url):
     # -----------------------------------------------------------------------------
     # download the data from the urls and save it to the output directory
     try:
-        print(f"\n-- Downloading url from zip: {url} --")
+        # print(f"\n-- Downloading url from zip: {url} --")
         response = requests.get(url)
         response.raise_for_status()  # raise an error if the request was unsuccessful
                 
@@ -99,7 +99,7 @@ def download_file(url):
     # -----------------------------------------------------------------------------
     # open zip file
     try:
-        print(f"\n-- Open Zip: {response} --")
+        # print(f"\n-- Open Zip: {response} --")
         with zipfile.ZipFile(io.BytesIO(response.content)) as z:
 
             inner_file = z.namelist()[0]
@@ -122,6 +122,7 @@ def main():
 
 
     print(f"-[STATS]- Found {len(urls)} files matching date range and file type.\n")
+    print("...downloading..")
  
     counts = {"downloaded": 0, "skipped": 0, "failed": 0}
  
