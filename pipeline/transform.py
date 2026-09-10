@@ -37,7 +37,7 @@ COLUMN_NAMES = [
 ]
 
 # !! maunally set the schema attributes with:
-# "name", "data_type", "null" (True for optional, False for mandatory)
+# "name", "data_type", "null" (True for optional, False for mandatory < this is for stored data)
 GDELT_COLUMN_SCHEMA = StructType([
     StructField("GLOBALEVENTID", LongType(), True),
     StructField("SQLDATE", StringType(), True),
@@ -161,8 +161,6 @@ def filter(df_read):
     ).withColumn(
         "month", func.month(func.col("sql_date"))
     ).withColumn(
-        "quarter", func.quarter(func.col("sql_date"))
-    ).withColumn(
         "date_added_ts", func.to_timestamp(func.col("DATEADDED"), "yyyyMMddHHmmss")
     )
  
@@ -179,7 +177,6 @@ def filter(df_read):
         func.col("sql_date"),
         func.col("Year").alias("year"),
         func.col("month"),
-        func.col("quarter"),
         func.col("ActionGeo_ADM1Code").alias("adm1_code"),
         func.col("ActionGeo_FullName").alias("action_geo_full_name"),
         func.col("EventRootCode").alias("event_root_code"),
@@ -201,7 +198,8 @@ def filter(df_read):
 
     # ---------------------------------------------------------
 
-    print("\nSample of cleaned data:")
+    # print("\nSample of cleaned data:")
+    
     df_clean.show(5, truncate=False)
 
     return df_clean
@@ -214,7 +212,8 @@ def write(cleaned_df):
     # 5. WRITE -- save as parquet. overwrite = current script get replaced
     # ----------------------------------------------------------
     cleaned_df.write.mode("overwrite").parquet(OUTPUT_DIR)
-    print(f"\nWrote cleaned data to {OUTPUT_DIR}")
+
+    # print(f"\nWrote cleaned data to {OUTPUT_DIR}")
 # ===============================
 
 
@@ -222,7 +221,6 @@ def write(cleaned_df):
 def main():
     
     # [1] initialize SparkSession (the entry point)
-    print("hmm")
     spark = SparkSession.builder \
         .appName("SACivicPulseTransform") \
         .getOrCreate()
@@ -231,17 +229,18 @@ def main():
 
     # [2] READ 
     df_read = read(spark)
-    total_count = df_read.count()
-    print(f"----- Loaded {total_count} total rows from all raw files.")
+
+    # total_count = df_read.count()
+    # print(f"----- Loaded {total_count} total rows from all raw files.")
 
 #--------------------------------------------------------------------------
 
     # [3] FILTER  -- keep only South African rows
     df_filter = filter(df_read)
 
-    result_count = df_filter.count()
-    print(f"Filtered down to {result_count} South African rows "
-        f"({result_count / total_count * 100:.2f}% of total).")
+    # result_count = df_filter.count()
+    # print(f"Filtered down to {result_count} South African rows "
+    #     f"({result_count / total_count * 100:.2f}% of total).")
 
 #--------------------------------------------------------------------------
 
@@ -254,8 +253,5 @@ def main():
     spark.stop()
 
 
-
 if __name__ == "__main__":
     main()
-
-    
