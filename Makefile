@@ -1,16 +1,22 @@
-venv:
-	@echo "[1]...Creating virtual environment..."
-	@python3 -m venv venv
-# 	@echo "[2]...Activating virtual environment..."
-	@source venv/bin/activate
-	@echo "[3]...Virtual environment created and activated."
+VENV := venv
+PYTHON := $(VENV)/bin/python
+PIP := $(VENV)/bin/pip
 
-install-dep:
-	@echo "[4]...Installing dependencies..."
-	@pip install -r requirements.txt
+# Create the venv only if the folder doesn't already exist
+$(VENV):
+	@echo "[1]...Creating virtual environment..."
+	@python3 -m venv $(VENV)
+	@$(PIP) install --upgrade pip
+
+install: $(VENV)
+	@echo "[2]...Installing dependencies..."
+	@$(PIP) install -r requirements.txt
+
+test:
+	@echo "[2]...Running test files..."
 
 postgres-startup:
-	@echo "[5]...Strating Up PostgreSQL..."
+	@echo "[5]...Strating up PostgreSQL..."
 	docker compose up -d
 
 	@echo "...Applying Schema..."
@@ -28,46 +34,45 @@ run-pipeline:
 	python3 pipeline/load.py
 
 # run-api:
-# 	@echo "[5]...Running API..."
+# 	@echo "[9]...Running API..."
 
+run_docker_test_db:
+	@echo "[1] ...Start Database..."
+	docker compose up -d
 
+	@echo "---Confirm if running---"
+	docker ps
 
+	@echo "---Resetting Schema---"
+	docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
 
-# run_docker_test_db:
-# 	@echo "[5] ...Start Database..."
-# 	docker compose up -d
+	@echo "---Apply Schema DDL---"
+	docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse < pipeline/schema.sql
 
-# 	@echo "-Confirm if running-"
-# 	docker ps
+	@echo "---Load Parquet into Postgres---"
+	venv/bin/python pipeline/load.py
 
-# 	@echo "-Deleting schema-"
-# 	docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+	@echo "---Row Counts Across Tables---"
+	docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse -c "\
+		SELECT 'event_time' AS tbl, COUNT(*) FROM event_time \
+		UNION ALL \
+		SELECT 'event_location', COUNT(*) FROM event_location \
+		UNION ALL \
+		SELECT 'event_action_type', COUNT(*) FROM event_action_type \
+		UNION ALL \
+		SELECT 'event_fact', COUNT(*) FROM event_fact;"
 
-# 	@echo "-Refresh Database-"
-# 	docker compose up -d --force-recreate
-
-
-
-# 	@echo "-Apply Schema-"
-# 	docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse < pipeline/schema.sql
-	
-# 	@echo "-Populating test dimensions and fact-"
-# 	docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse -c "\
-# 		INSERT INTO event_time (date_key, sql_date, year, month) \
-# 		VALUES (20260831, '2026-08-31', 2026, 8) \
-# 		ON CONFLICT (date_key) DO NOTHING;"
-
-# 	docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse -c "\
-# 		INSERT INTO event_action_type (cameo_root_code, cameo_base_code, quad_class) \
-# 		VALUES ('14', '141', 3) \
-# 		ON CONFLICT (cameo_root_code, cameo_base_code, quad_class) DO NOTHING;"
-	
-# 	docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse -c "\
-# 		INSERT INTO event_location (adm1_code, province_name, country_code) \
-# 		VALUES ('SF11', 'Western Cape', 'SF') \
-# 		ON CONFLICT (adm1_code) DO NOTHING;"
-	
-# 	docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse -c "\
-# 		INSERT INTO event_fact (global_event_id, date_key, location_id, event_type_id, actor1_name, avg_tone) \
-# 		VALUES (1320689300, 20260831, 1, 1, 'SOUTH AFRICA', -3.737259) \
-# 		ON CONFLICT (global_event_id) DO NOTHING;"
+	@echo "---Verify Foreign Key Joins---"
+	docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse -c "\
+		SELECT \
+			f.global_event_id, \
+			t.sql_date, \
+			l.province_name, \
+			a.cameo_root_code, \
+			f.actor1_name, \
+			f.goldstein_scale \
+		FROM event_fact f \
+		JOIN event_time t ON f.date_key = t.date_key \
+		JOIN event_location l ON f.location_id = l.location_id \
+		JOIN event_action_type a ON f.event_type_id = a.event_type_id \
+		LIMIT 5;"
