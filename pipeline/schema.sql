@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS event_action_type (
     cameo_root_code   TEXT NOT NULL,                -- EventRootCode [ 02 ]
     cameo_base_code   TEXT NOT NULL DEFAULT '',     -- EventBaseCode [ 040 ]
     quad_class        INT,                          -- QuadClass [ 1-4 in Verbal Cooperation, Material Cooperation, Verbal Conflict, and Material Conflict]
+    category_label    TEXT,
     UNIQUE NULLS NOT DISTINCT (cameo_root_code, cameo_base_code, quad_class)
 );
 
@@ -47,7 +48,7 @@ CREATE TABLE event_fact (
     actor2_name         TEXT,       -- Actor2Name, e.g. 'POLICE' (can be blank -- normal)
     actor2_country      TEXT,       -- Actor2CountryCode (can be blank -- normal)
 
-    goldstein_scale     DOUBLE PRECISION,   -- GoldsteinScale, theoretical impact score, -10 to +10 -> e.g -5.0
+    goldstein_scale     DOUBLE PRECISION,   -- GoldsteinScale, theoretical impact score, -10 to +10 -> -5.0 ------ [ difference between DOUBLE PRECISION and REAL is that DOUBLE PRECISION is more precise, but takes up more space ]
     avg_tone            DOUBLE PRECISION,   -- AvgTone, actual article sentiment, -100 to +100 -> e.g -3.737259
     num_mentions        INT,                -- NumMentions [ 4 ]
     num_sources         INT,                -- NumSources [ 2 ]
