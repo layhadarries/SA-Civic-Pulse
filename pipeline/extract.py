@@ -17,8 +17,7 @@ MASTERLIST_FILE = "masterfilelist.txt"
  
 # Sept 2025 to Aug 2026
 START_DATE = "20250901000000"   # 2025-09-01 00:00:00
-# END_DATE = "20260831235959"     # 2026-08-31 23:59:59
-END_DATE =  "20250908000000"    # [TEMP] only a week diff for now
+END_DATE = "20260831235959"     # 2026-08-31 23:59:59
 
 OUTPUT_DIR = "data/raw"
 
