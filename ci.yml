@@ -1,6 +1,7 @@
 # name of workflow
 name: SA Civic Pulse CI
 
+# when to run. "on" being what events should cause the workflow to run
 on:
   push:
     branches: [main]
@@ -11,6 +12,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
+    # downloads/checks out repo onto machine, @v4 refers to chechout GHA
       - uses: actions/checkout@v4
 
       - name: Set up Python
@@ -22,4 +24,8 @@ jobs:
         run: make install
 
       - name: Run tests
-        run: pmake run-test
+        run: make run-test
+  
+  # build: ?
+
+  # deploy: ?
