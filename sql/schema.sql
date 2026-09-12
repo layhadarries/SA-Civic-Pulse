@@ -1,7 +1,5 @@
--- look at the GDELT Event Cookbook for more fields
--- do we need religious affiliation?
+-- !! look at the GDELT Event Cookbook for more fields
 
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- -----------------------
 --   EVENT INFO tables
 -- -----------------------
@@ -37,7 +35,7 @@ CREATE TABLE IF NOT EXISTS event_action_type (
 --    EVENT FACTS table
 -- -----------------------
 
-CREATE TABLE event_fact (
+CREATE TABLE IF NOT EXISTS event_fact (
     global_event_id     BIGINT PRIMARY KEY, -- GLOBALEVENTID [ 1320689300 ]
     date_key            INT NOT NULL REFERENCES event_time (date_key),
     location_id         INT NOT NULL REFERENCES event_location (location_id),

@@ -164,11 +164,12 @@ def load_event_aciton_type(connect, df):
         - cameo_root_code
         - cameo_base_code
         - quad_class
-      X - UNIQUE NULLS NOT DISTINCT (cameo_root_code, cameo_base_code, quad_class)
+        - category_label
+      X - UNIQUE NULLS NOT DISTINCT (cameo_root_code, cameo_base_code, quad_class, category_label)
     """
 
     rows = (
-        df[["event_root_code", "event_base_code", "quad_class"]]
+        df[["event_root_code", "event_base_code", "quad_class", "category_label"]]
         .drop_duplicates()
     )
 
@@ -177,8 +178,8 @@ def load_event_aciton_type(connect, df):
     values = list(rows.itertuples(index=False, name=None))
 
     sql_query = """
-        INSERT INTO event_action_type (cameo_root_code, cameo_base_code, quad_class) 
-        VALUES %s ON CONFLICT (cameo_root_code, cameo_base_code, quad_class) DO NOTHING
+        INSERT INTO event_action_type (cameo_root_code, cameo_base_code, quad_class, category_label) 
+        VALUES %s ON CONFLICT (cameo_root_code, cameo_base_code, quad_class, category_label) DO NOTHING
     """
 
     execute_sql(connect, sql_query, values)
