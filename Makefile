@@ -1,83 +1,78 @@
-venv:
+# -- EXPECTED ORDER --
+# make db-reset
+#      ↓
+# Empty database
+#      ↓
+# Apply schema
+#      ↓
+# make run-pipeline
+#      ↓
+# Extract → Transform → Load
+
+VENV := venv
+PYTHON := $(VENV)/bin/python
+PIP := $(VENV)/bin/pip
+
+.PHONY: $(VENV) install run-test db-startup run-pipeline clean db-stop run-api clean db-reset help
+
+# Create the venv only if the folder doesn't already exist
+$(VENV):
 	@echo "[1]...Creating virtual environment..."
-	@python3 -m venv venv
-# 	@echo "[2]...Activating virtual environment..."
-	@source venv/bin/activate
-	@echo "[3]...Virtual environment created and activated."
+	@python3.12 -m venv $(VENV)
+	@$(PIP) install --upgrade pip setuptools wheel
 
-install-dep:
-	@echo "[4]...Installing dependencies..."
-	@pip install -r requirements.txt
+install: $(VENV)
+	@echo "[2]...Installing dependencies..."
+	@$(PIP) install -r requirements.txt
 
-run_docker_test_db:
-	@echo "[5] ...Start Database..."
+run-test:
+	@echo "[2]...Running test files..."
+	@$(PYTHON) -m pytest tests/ -v
+
+db-setup:
+	@echo "[5]...Strating up PostgreSQL..."
 	docker compose up -d
 
-	@echo "-Confirm if running-"
-	docker ps
+	@echo "...Applying Schema..."
+	docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse < sql/schema.sql
 
-	@echo "-Deleting schema-"
-	docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
-
-	@echo "-Refresh Database-"
-	docker compose up -d --force-recreate
-
-	@echo "-Apply Schema-"
-	docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse < pipeline/schema.sql
+run-pipeline:
+	@echo "[6]...Load Raw GDELT files..."
+	@$(PYTHON) pipeline/extract.py
 	
-	@echo "-Populating test dimensions and fact-"
-	docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse -c "\
-		INSERT INTO event_time (date_key, sql_date, year, month) \
-		VALUES (20260831, '2026-08-31', 2026, 8) \
-		ON CONFLICT (date_key) DO NOTHING;"
-	docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse -c "\
-		INSERT INTO event_action_type (cameo_root_code, cameo_base_code, quad_class) \
-		VALUES ('14', '141', 3) \
-		ON CONFLICT (cameo_root_code, cameo_base_code, quad_class) DO NOTHING;"
+	@echo "[7]...Clean and Filter Data..."
+	@$(PYTHON) pipeline/transform.py
 	
-	docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse -c "\
-		INSERT INTO event_location (adm1_code, province_name, country_code) \
-		VALUES ('SF11', 'Western Cape', 'SF') \
-		ON CONFLICT (adm1_code) DO NOTHING;"
-	
-	docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse -c "\
-		INSERT INTO event_fact (global_event_id, date_key, location_id, event_type_id, actor1_name, avg_tone) \
-		VALUES (1320689300, 20260831, 1, 1, 'SOUTH AFRICA', -3.737259) \
-		ON CONFLICT (global_event_id) DO NOTHING;"
+	@echo "[8]...Load data into PostgreSQL Database..."
+	@$(PYTHON) pipeline/load.py
 
-# run_docker_test_db:
-# 	@echo "[5] ...Start Database..."
-# 	docker compose up -d
+# db-stop:
+# 	@echo "...Stopping PostgreSQL..."
+# 	@docker compose down
 
-# 	@echo "-Confirm if running-"
-# 	docker ps
+# run-api:
+# 	@echo "[9]...Running API..."
 
-# 	@echo "-Deleting schema-"
-# 	docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
 
-# 	@echo "-Refresh Database-"
-# 	docker compose up -d --force-recreate
+# DO NOT USE
+clean:
+	@echo "-X Remove whatever files created or downloaded - for a clean repo X-"
+# 	rm -rf $(VENV)
+	rm -rf data/raw/*.CSV
+	rm -rf data/processed/events/*
 
-# 	@echo "-Apply Schema-"
-# 	docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse < pipeline/schema.sql
+db-reset:
+	@echo "...Resetting database..."
+	@docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+	@echo "...Applying schema..."
+	@docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse < sql/schema.sql
 
-# 	@echo "-Populating test dimensions and fact-"
-# 	docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse -c "\
-# 		INSERT INTO event_time (date_key, sql_date, year, month) \
-# 		VALUES (20260831, '2026-08-31', 2026, 8) \
-# 		ON CONFLICT (date_key) DO NOTHING;"
-# 	docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse -c "\
-# 		INSERT INTO event_action_type (cameo_root_code, cameo_base_code, quad_class) \
-# 		VALUES ('14', '141', 3) \
-# 		ON CONFLICT (cameo_root_code, cameo_base_code, quad_class) DO NOTHING;"
-# 	docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse -c "\
-# 		INSERT INTO event_location (adm1_code, province_name, country_code) \
-# 		VALUES ('SF11', 'Western Cape', 'SF') \
-# 		ON CONFLICT (adm1_code) DO NOTHING;"
-# 	docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse -c "\
-# 		INSERT INTO event_fact (global_event_id, date_key, location_id, event_type_id, actor1_name, avg_tone) \
-# 		SELECT 1320689300, 20260831, l.location_id, a.event_type_id, 'SOUTH AFRICA', -3.737259 \
-# 		FROM event_location l, event_action_type a \
-# 		WHERE l.adm1_code = 'SF11' \
-# 		  AND a.cameo_root_code = '14' AND a.cameo_base_code = '141' AND a.quad_class = 3 \
-# 		ON CONFLICT (global_event_id) DO NOTHING;"
+
+help:
+	@echo "Available commands:"
+	@echo "  make install          Install Python dependencies"
+	@echo "  make run-test         Run tests"
+	@echo "  make postgres-startup Start PostgreSQL"
+	@echo "  make postgres-stop    Stop PostgreSQL"
+	@echo "  make run-pipeline     Run ETL pipeline"
+	@echo "  make clean            Remove generated files"

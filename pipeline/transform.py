@@ -37,7 +37,7 @@ COLUMN_NAMES = [
 ]
 
 # !! maunally set the schema attributes with:
-# "name", "data_type", "null" (True for optional, False for mandatory)
+# "name", "data_type", "null" (True for optional, False for mandatory < this is for stored data)
 GDELT_COLUMN_SCHEMA = StructType([
     StructField("GLOBALEVENTID", LongType(), True),
     StructField("SQLDATE", StringType(), True),
@@ -149,6 +149,13 @@ def read(spark_session):
     return df
 # ===============================
 
+def empty_to_null(col_name):
+    return func.when(func.trim(func.col(col_name)) == "", 
+                    func.lit(None)).otherwise(
+                    func.col(col_name)
+                    )
+
+
 # ===============================
 def filter(df_read):
     # filter for south african events only "SF" -> ActionGeo_CountyCode
@@ -160,8 +167,6 @@ def filter(df_read):
         "sql_date", func.to_date(func.col("SQLDATE"), "yyyyMMdd")
     ).withColumn(
         "month", func.month(func.col("sql_date"))
-    ).withColumn(
-        "quarter", func.quarter(func.col("sql_date"))
     ).withColumn(
         "date_added_ts", func.to_timestamp(func.col("DATEADDED"), "yyyyMMddHHmmss")
     )
@@ -179,17 +184,18 @@ def filter(df_read):
         func.col("sql_date"),
         func.col("Year").alias("year"),
         func.col("month"),
-        func.col("quarter"),
         func.col("ActionGeo_ADM1Code").alias("adm1_code"),
         func.col("ActionGeo_FullName").alias("action_geo_full_name"),
         func.col("EventRootCode").alias("event_root_code"),
         func.col("EventBaseCode").alias("event_base_code"),
         func.col("QuadClass").alias("quad_class"),
         func.col("category_label"),
-        func.col("Actor1Name").alias("actor1_name"),
-        func.col("Actor1CountryCode").alias("actor1_country"),
-        func.col("Actor2Name").alias("actor2_name"),
-        func.col("Actor2CountryCode").alias("actor2_country"),
+        # -- eplace empty strings with NULL --
+        empty_to_null("Actor1Name").alias("actor1_name"),
+        empty_to_null("Actor1CountryCode").alias("actor1_country"),
+        empty_to_null("Actor2Name").alias("actor2_name"),
+        empty_to_null("Actor2CountryCode").alias("actor2_country"),
+        # ------------------------------------
         func.col("GoldsteinScale").alias("goldstein_scale"),
         func.col("AvgTone").alias("avg_tone"),
         func.col("NumMentions").alias("num_mentions"),
@@ -201,7 +207,8 @@ def filter(df_read):
 
     # ---------------------------------------------------------
 
-    print("\nSample of cleaned data:")
+    # print("\nSample of cleaned data:")
+    
     df_clean.show(5, truncate=False)
 
     return df_clean
@@ -214,7 +221,8 @@ def write(cleaned_df):
     # 5. WRITE -- save as parquet. overwrite = current script get replaced
     # ----------------------------------------------------------
     cleaned_df.write.mode("overwrite").parquet(OUTPUT_DIR)
-    print(f"\nWrote cleaned data to {OUTPUT_DIR}")
+
+    # print(f"\nWrote cleaned data to {OUTPUT_DIR}")
 # ===============================
 
 
@@ -222,7 +230,6 @@ def write(cleaned_df):
 def main():
     
     # [1] initialize SparkSession (the entry point)
-    print("hmm")
     spark = SparkSession.builder \
         .appName("SACivicPulseTransform") \
         .getOrCreate()
@@ -231,17 +238,18 @@ def main():
 
     # [2] READ 
     df_read = read(spark)
-    total_count = df_read.count()
-    print(f"----- Loaded {total_count} total rows from all raw files.")
+
+    # total_count = df_read.count()
+    # print(f"----- Loaded {total_count} total rows from all raw files.")
 
 #--------------------------------------------------------------------------
 
     # [3] FILTER  -- keep only South African rows
     df_filter = filter(df_read)
 
-    result_count = df_filter.count()
-    print(f"Filtered down to {result_count} South African rows "
-        f"({result_count / total_count * 100:.2f}% of total).")
+    # result_count = df_filter.count()
+    # print(f"Filtered down to {result_count} South African rows "
+    #     f"({result_count / total_count * 100:.2f}% of total).")
 
 #--------------------------------------------------------------------------
 
@@ -254,8 +262,5 @@ def main():
     spark.stop()
 
 
-
 if __name__ == "__main__":
     main()
-
-    

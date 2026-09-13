@@ -1,0 +1,31 @@
+# name of workflow
+name: SA Civic Pulse CI
+
+# when to run. "on" being what events should cause the workflow to run
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    # downloads/checks out repo onto machine, @v4 refers to chechout GHA
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Run tests
+        run: make run-test
+  
+  # build: ?
+
+  # deploy: ?

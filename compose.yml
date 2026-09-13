@@ -6,12 +6,12 @@ services:
 
     # postgres environment variables
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: dev_password
-      POSTGRES_DB: sa_civic_pulse
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
 
     ports:
-      - "5432:5432" # postgres port number and accessible port number
+      - "${POSTGRES_PORT}:5432" # postgres port number and accessible port number
     volumes:
       - postgres_data:/var/lib/postgresql/data # keeps data even if container restarts (db layer)
 
