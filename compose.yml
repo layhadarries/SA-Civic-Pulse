@@ -1,19 +1,32 @@
 services:
-  postgres:
-    image: postgres:16
+  db:
+    image: postgres:15
     container_name: sa-civic-pulse-db
     restart: unless-stopped
-
-    # postgres environment variables
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-
     ports:
-      - "${POSTGRES_PORT}:5432" # postgres port number and accessible port number
+      - "${POSTGRES_PORT}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data # keeps data even if container restarts (db layer)
+      - pgdata:/var/lib/postgresql/data
+
+  pipeline:
+    profiles: ["app"]
+    build: .
+    container_name: sa-civic-pulse-pipeline
+    depends_on:
+      - db
+    volumes:
+      - ./data:/app/data
+      - ./pipeline:/app/pipeline
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 
 volumes:
-  postgres_data:
+  pgdata:
