@@ -1,17 +1,20 @@
 """
-Takes the parquet output from transform.py and loads it into Postgres.
- 
-Three steps, in order (dimensions must exist before the fact table can
-reference them via foreign key):
-    1. Load/upsert event_time      (one row per unique date)
-    2. Load/upsert event_location  (one row per unique province + a fallback
-                                     row for country-level-only events)
-    3. Load/upsert event_action_type (one row per unique CAMEO combination)
-    4. Look up the generated IDs, attach them to the fact rows, and insert
-       into event_fact
- 
-Safe to re-run: every insert uses ON CONFLICT DO NOTHING, so running this
-twice on the same data won't create duplicates or error out.
+load.py — Dimensional Loading Layer for SA Civic Pulse
+
+Ingests cleaned and transformed GDELT events from columnar Parquet storage,
+populates dimensional entities (time, location, action types), resolves
+surrogate foreign keys, and appends records into the primary fact table.
+
+Input:  data/processed/events/ (Parquet format)
+Output: PostgreSQL relational star schema (event_fact, dimensions)
+Core Responsibilities:
+1. Ingest processed Parquet events into an in-memory Pandas DataFrame.
+2. Upsert the time dimension (event_time) indexed by integer date keys (YYYYMMDD).
+3. Upsert the geographic dimension (event_location) with GDELT ADM1 codes and fallback values.
+4. Upsert the taxonomy dimension (event_action_type) using unique CAMEO code combinations.
+5. Query surrogate primary keys from dimensions to map relational foreign key dependencies.
+6. Clean, align, and load core event observations into the central fact table (event_fact).
+7. Ensure idempotent execution across all load targets via ON CONFLICT DO NOTHING clauses.
 """
 
 import os
@@ -21,8 +24,10 @@ import psycopg2 # communicate to posgresql
 # helper method for inserting many rows at once
 from psycopg2.extras import execute_values
 
+from dotenv import load_dotenv
 
-## --------------------------------------------------------------- ##
+
+
 PARQUET_DIR = "data/processed/events"
 
 PROVINCES = {
@@ -39,15 +44,17 @@ PROVINCES = {
     "SF11": "Western Cape",
 }
 
-# config from compose
+load_dotenv()
+
+# Postgres config
 DB_CONFIG = {
-    "host": os.environ.get("POSTGRES_HOST", "localhost"),
-    "port": os.environ.get("POSTGRES_PORT", "5432"),
-    "dbname": os.environ.get("POSTGRES_NAME", "sa_civic_pulse"),
-    "user": os.environ.get("POSTGRES_USER", "admin"),
-    "password": os.environ.get("POSTGRES_PASSWORD", "dev_password"),
+    "host": os.getenv("POSTGRES_HOST"),
+    "port": os.getenv("POSTGRES_PORT"),
+    "dbname": os.getenv("POSTGRES_DB"),
+    "user": os.getenv("POSTGRES_USER"),
+    "password": os.getenv("POSTGRES_PASSWORD"),
 }
-## --------------------------------------------------------------- ##
+
 
 ## ----------------------- helper methods ------------------------ ##
 def execute_sql(connect, sql_query, values):
@@ -70,7 +77,6 @@ def execute_sql(connect, sql_query, values):
 
      # makes changes permanent
     connect.commit()
-## --------------------------------------------------------------- ##
 
 
 ## ----------------------- Load Event Time ----------------------- ##
@@ -110,8 +116,6 @@ def load_event_time(connect, df):
     """
 
     execute_sql(connect, sql_query, values)
-    # print(f"load - EVENT TIME - {len(values)} dates")
-## --------------------------------------------------------------- ##
 
 
 ## -------------------- Load Event Location ---------------------- ##
@@ -150,8 +154,6 @@ def load_event_location(connect, df):
     """
 
     execute_sql(connect, sql_query, values)
-    # print(f"load - EVENT LOCATION - {len(values)} locations")
-## --------------------------------------------------------------- ##
 
 
 ## ---------------------- Load Action Time ----------------------- ##
@@ -165,7 +167,7 @@ def load_event_aciton_type(connect, df):
         - cameo_base_code
         - quad_class
         - category_label
-      X - UNIQUE NULLS NOT DISTINCT (cameo_root_code, cameo_base_code, quad_class, category_label)
+      X - UNIQUE NULLS NOT DISTINCT (cameo_root_code, cameo_base_code, quad_class)
     """
 
     rows = (
@@ -179,12 +181,10 @@ def load_event_aciton_type(connect, df):
 
     sql_query = """
         INSERT INTO event_action_type (cameo_root_code, cameo_base_code, quad_class, category_label) 
-        VALUES %s ON CONFLICT (cameo_root_code, cameo_base_code, quad_class, category_label) DO NOTHING
+        VALUES %s ON CONFLICT (cameo_root_code, cameo_base_code, quad_class) DO NOTHING
     """
 
     execute_sql(connect, sql_query, values)
-    # print(f"load - EVENT ACTION TYPE - {len(values)} event types")
-## --------------------------------------------------------------- ##
 
 
 ## ------------- helper methods for Load Event Time -------------- ##
@@ -200,14 +200,11 @@ def fetch_location_ids(conn):
     with conn.cursor() as cur:
         cur.execute("SELECT location_id, adm1_code FROM event_location")
         return {adm1_code: location_id for location_id, adm1_code in cur.fetchall()}
+
  
 def fetch_event_type_ids(conn):
     """
     Get foreign key id from event_action_type
-
-    returns a dictionary like:
-        {   ("02", "040", 1): 5,
-            ("03", "030", 2): 6     }
     """
 
     with conn.cursor() as cur:
@@ -218,6 +215,30 @@ def fetch_event_type_ids(conn):
             (root, base, quad): type_id
             for type_id, root, base, quad in cur.fetchall()
         }
+
+
+def fetch_event_time_ids(conn):
+    """
+    Get the count of total date_key's from event_time table
+    """
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT COUNT(date_key) FROM event_time")
+        result = cur.fetchone()
+        return result[0] if result else 0
+
+
+def fetch_event_fact(conn):
+    """
+    Get the count of total global_event_id's from event_time table
+    """
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT COUNT(global_event_id) FROM event_fact")
+        result = cur.fetchone()
+        return result[0] if result else 0
+
+ 
 
 ## ----------------------- Load Event Time ----------------------- ##
 def load_event_fact(connect, df, location_id_key, event_type_id_key):
@@ -244,6 +265,7 @@ def load_event_fact(connect, df, location_id_key, event_type_id_key):
     # convert SF11 into 8 -> represents adm1_code
     df["location_id"] = (
         df["adm1_code"]
+        .fillna("SF")
         .map(location_id_key)
     )
 
@@ -261,7 +283,6 @@ def load_event_fact(connect, df, location_id_key, event_type_id_key):
     )
 
     # -- fact table columns (taken from transform AFTER loading into db)
-
     fact_columns = [
         "global_event_id",
         "date_key",
@@ -296,21 +317,20 @@ def load_event_fact(connect, df, location_id_key, event_type_id_key):
     """
 
     execute_sql(connect, sql_query, values)
-    # print(f"load - EVENT FACT - {len(values)} rows")
-## --------------------------------------------------------------- ##
+
 
 
 def main():
+    print("\n[3/3] LOAD — writing to Postgres")
 
-    # print("--- [1] --- Reading parquet files ---")
     # [1] read parquet files using pandas
     df = pandas.read_parquet(PARQUET_DIR)
 
     # [2] connect to postgresql using config vars from compose.yml
     pgsql_connect = psycopg2.connect(**DB_CONFIG)
 
+    # [3] Run load process
     try:
-        # call all the necessary functions
         load_event_time(pgsql_connect, df)
         load_event_location(pgsql_connect, df)
         load_event_aciton_type(pgsql_connect, df)
@@ -318,19 +338,18 @@ def main():
         location_id = fetch_location_ids(pgsql_connect)
         event_type_id = fetch_event_type_ids(pgsql_connect)
 
-        # print(f"Found {len(location_id)} locations.")
-
-        # print(f"Found {len(event_type_id)} event types.")
-
-        # print("\n--- [5] --- Loading event facts ---")
-
         load_event_fact(pgsql_connect, df, location_id, event_type_id)
 
+        event_date_max = fetch_event_time_ids(pgsql_connect)
+        event_fact_max = fetch_event_fact(pgsql_connect)
+        
+        print(f" ✓ Found {event_date_max} event time dates.")
+        print(f" ✓ Found {len(location_id)} event locations.")
+        print(f" ✓ Found {len(event_type_id)} event types.")
+        print(f" ✓ Found {event_fact_max} event fact rows.\n")
+        print("======================================")
     finally:
         pgsql_connect.close()
-        # print("\nPostgreSQL connection closed.")
-
-    # print("\n--- LOAD COMPLETE ---")
 
 
 if __name__ == "__main__":
