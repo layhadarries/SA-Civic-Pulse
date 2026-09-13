@@ -1,71 +1,69 @@
-# -- EXPECTED ORDER --
-# make db-reset
-#      ↓
-# Empty database
-#      ↓
-# Apply schema
-#      ↓
-# make run-pipeline
-#      ↓
-# Extract → Transform → Load
+include .env
+export 
 
-VENV := venv
+
+VENV := .venv
 PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
+CONTAINER_NAME := sa-civic-pulse-db
+SCHEMA := sql/schema.sql
 
-.PHONY: $(VENV) install run-test db-startup run-pipeline clean db-stop run-api clean db-reset help
+.PHONY: install run-test db-setup add-schema run-pipeline db-stop clean db-reset help
 
-# Create the venv only if the folder doesn't already exist
-$(VENV):
-	@echo "[1]...Creating virtual environment..."
-	@python3.12 -m venv $(VENV)
-	@$(PIP) install --upgrade pip setuptools wheel
 
-install: $(VENV)
+install:
 	@echo "[2]...Installing dependencies..."
-	@$(PIP) install -r requirements.txt
+	@pip install -r requirements.txt
 
 run-test:
 	@echo "[2]...Running test files..."
 	@$(PYTHON) -m pytest tests/ -v
 
+# -------------- Docker and PostgreSQL --------------
 db-setup:
-	@echo "[5]...Strating up PostgreSQL..."
-	docker compose up -d
+	@echo "...Starting up PostgreSQL container..."
+	@docker compose up -d db
 
+add-schema: db-setup
 	@echo "...Applying Schema..."
-	docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse < sql/schema.sql
+	@docker exec -i $(CONTAINER_NAME) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) < $(SCHEMA)
+	
+	@echo "...Schema applied successfully."
 
+# ETL pipeline
 run-pipeline:
-	@echo "[6]...Load Raw GDELT files..."
-	@$(PYTHON) pipeline/extract.py
-	
-	@echo "[7]...Clean and Filter Data..."
-	@$(PYTHON) pipeline/transform.py
-	
-	@echo "[8]...Load data into PostgreSQL Database..."
-	@$(PYTHON) pipeline/load.py
+	@python3 pipeline/extract.py
+	@python3 pipeline/transform.py
+	@python3 pipeline/load.py
 
-# db-stop:
-# 	@echo "...Stopping PostgreSQL..."
-# 	@docker compose down
+db-stop:
+	@echo "...Stopping PostgreSQL..."
+	@docker compose down
+
+db-reset: db-setup
+	@echo "...Resetting database..."
+	@docker exec -i $(CONTAINER_NAME) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+	
+	@echo ""...Refresh Database"..."
+	docker compose up -d --force-recreate
+
+	@echo "...Applying schema..."
+	@docker exec -i $(CONTAINER_NAME) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) < $(SCHEMA)
+
+#----------------------------------------------------
 
 # run-api:
 # 	@echo "[9]...Running API..."
 
+#----------------------------------------------------
 
-# DO NOT USE
 clean:
-	@echo "-X Remove whatever files created or downloaded - for a clean repo X-"
-# 	rm -rf $(VENV)
+	@echo "-X Remove v env, data from GDELT, remove schema, recreate db X-"
+	rm -rf $(VENV)
 	rm -rf data/raw/*.CSV
 	rm -rf data/processed/events/*
-
-db-reset:
-	@echo "...Resetting database..."
-	@docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
-	@echo "...Applying schema..."
-	@docker exec -i sa-civic-pulse-db psql -U admin -d sa_civic_pulse < sql/schema.sql
+	docker exec -i $(CONTAINER_NAME) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+	docker compose up -d --force-recreate
 
 
 help:
@@ -76,3 +74,5 @@ help:
 	@echo "  make postgres-stop    Stop PostgreSQL"
 	@echo "  make run-pipeline     Run ETL pipeline"
 	@echo "  make clean            Remove generated files"
+
+#----------------------------------------------------
