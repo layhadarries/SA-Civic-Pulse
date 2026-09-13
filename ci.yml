@@ -25,7 +25,3 @@ jobs:
 
       - name: Run tests
         run: make run-test
-  
-  # build: ?
-
-  # deploy: ?
