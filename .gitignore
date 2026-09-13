@@ -1,1 +1,5 @@
 masterfilelist.txt
+data/
+.env
+api/__pycache__
+.venv/

@@ -1,5 +1,3 @@
--- !! look at the GDELT Event Cookbook for more fields
-
 -- -----------------------
 --   EVENT INFO tables
 -- -----------------------
