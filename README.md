@@ -126,7 +126,7 @@ want the most current file listing.
 # 1. Set up and activate your environment file
 ```bash
 cp .env.example .env
-source venv/bin/activate
+source .venv/bin/activate
 ```
 
 # 2. Create the virtual environment and install dependencies
