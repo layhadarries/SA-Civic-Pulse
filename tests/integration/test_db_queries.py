@@ -1,1 +1,0 @@
-# sql queries, load.py logic against Postgres
