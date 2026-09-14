@@ -93,12 +93,13 @@ cp .env.example .env
 ```
 
 .env should contain:
-
+```bash
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5050
 POSTGRES_DB=sa_civic_pulse
 POSTGRES_USER=admin
 POSTGRES_PASSWORD=db_password
+```
 
 ## Getting masterfilelist.txt
 
