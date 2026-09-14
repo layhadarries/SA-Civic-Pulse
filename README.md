@@ -4,8 +4,8 @@ A data pipeline that tracks event and sentiment trends across South African prov
 built from the [GDELT Project](https://www.gdeltproject.org/)'s global event database.
 
 Built as a Data Engineering elective project to demonstrate ETL pipeline design, star
-schema modelling, containerization, and CI/CD automation — using free tools and a
-dataset with real South African relevance.
+schema modelling, containerization, and CI/CD automation — and a dataset with real 
+South African relevance.
 
 ## What it does
 
