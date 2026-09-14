@@ -1,0 +1,40 @@
+## Why some of the choices we made
+
+**Why Spark, not pandas.** Several free South African datasets were considered first
+(Municipal Money, SAPS crime stats, EskomSePush). Municipal Money in particular is a
+clean, current, real API — but at tens of thousands of rows, using Spark on it would
+be over-engineering for the sake of it. GDELT is different: a single week of raw
+files here totals ~740,000 global rows, of which South Africa makes up roughly
+0.5–0.9%. Scaled to a full year, that's tens of millions of global rows Spark has to
+filter through to extract a South Africa-specific dataset — genuine justification
+for a distributed processing tool, not just a checkbox technology.
+
+**Why a star schema over a single flat table.** Event type (CAMEO codes) and location
+(province) are both repeated heavily across events — storing them as lookup tables
+instead of repeating text on every row keeps the fact table lean and makes filtering
+by province or category a straightforward join rather than a text match.
+
+**Why the location dimension uses FIPS codes, not ISO.** GDELT encodes country and
+province using FIPS 10-4 codes, not ISO — South Africa is `SF`, not `ZA`. Verified
+directly against the GDELT Event Database Codebook and confirmed against real
+downloaded data before building the schema around it.
+
+## Known limitations
+
+- **Duplicate event mentions.** GDELT records one row per article, not one row per
+  real-world event — multiple articles covering the same incident produce multiple
+  rows with near-identical fields. This project does not attempt to deduplicate
+  these (see the project's GitLab issue tracker for the full reasoning); the schema
+  keys on the raw `global_event_id`, so a "number of events" count reflects article
+  volume, not necessarily distinct real-world incidents. Sentiment/tone trends are
+  less affected by this, since duplicate rows for the same event carry similar tone.
+
+- **Geocoding granularity varies.** Roughly 20% of South African rows only resolve
+  to country level (no specific province), rather than city or province level. These
+  are represented in `event_location` as a fallback `'SF'` / "Unknown / National"
+  row rather than dropped.
+
+- **Not all "South Africa" rows are domestic South African news.** GDELT tags events
+  by where they're geographically referenced, not strictly where the story is "about."
+  A small number of rows are global stories (e.g. international relations coverage)
+  that happen to mention South Africa.

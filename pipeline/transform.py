@@ -1,11 +1,19 @@
 """
-------------------------------------------------------------------------------------
-1] READ     -- load all the raw CSVs into one big Spark DataFrame
-2] FILTER   -- keep only South African rows
-3] WRITE    -- keep only the columns we actually care about
-            -- compute new columns from existing ones (date parts, category labels)
-            -- save the result as parquet
-------------------------------------------------------------------------------------
+transform.py — Transformation & Filtering Layer for SA Civic Pulse
+
+Processes raw GDELT 2.0 event exports using Apache Spark, isolates South African
+incidents, cleans and enriches data attributes, and outputs an analytics-ready
+columnar dataset.
+
+Input:  data/raw/*.export.CSV
+Output: data/processed/events/ (Parquet format)
+Core Responsibilities:
+1. Load raw GDELT CSVs enforcing a strict predefined schema.
+2. Filter exclusively for South African events (ActionGeo_CountryCode == 'SF').
+3. Standardize temporal attributes (sql_date, month, date_added timestamp).
+4. Enrich events by mapping CAMEO root event codes to human-readable category labels.
+5. Sanitize schema by casting empty strings to SQL NULLs and pruning unused columns.
+6. Persist curated records as compressed Parquet file.
 """
 
 from pyspark.sql import SparkSession
@@ -13,7 +21,8 @@ from pyspark.sql.types import StructType, StructField, LongType, StringType, Int
 
 from pyspark.sql import functions as func
 
-# !! get columns
+
+# GDELT column names
 COLUMN_NAMES = [
     "GLOBALEVENTID", "SQLDATE", "MonthYear", "Year", "FractionDate",
     "Actor1Code", "Actor1Name", "Actor1CountryCode", "Actor1KnownGroupCode",
@@ -136,7 +145,7 @@ CAMEO_EVENT_CODES = {
 }
 
 
-# ===============================
+
 def read(spark_session):
     # built in method! :)
     df = spark_session.read.csv(
@@ -147,7 +156,7 @@ def read(spark_session):
     )
 
     return df
-# ===============================
+
 
 def empty_to_null(col_name):
     return func.when(func.trim(func.col(col_name)) == "", 
@@ -156,13 +165,11 @@ def empty_to_null(col_name):
                     )
 
 
-# ===============================
 def filter(df_read):
     # filter for south african events only "SF" -> ActionGeo_CountyCode
     # sa_rows = df[df["ActionGeo_CountryCode"] == "SF"] <- from example
     df_filtered = df_read.filter(func.col("ActionGeo_CountryCode") == "SF")
 
-    # ----------------------------------------------------------
     df_filtered = df_filtered.withColumn(
         "sql_date", func.to_date(func.col("SQLDATE"), "yyyyMMdd")
     ).withColumn(
@@ -176,7 +183,6 @@ def filter(df_read):
     mapping_expr = func.create_map([func.lit(x) for pair in CAMEO_EVENT_CODES.items() for x in pair])
     df_filtered = df_filtered.withColumn("category_label", mapping_expr[func.col("EventRootCode")])
 
-    # ----------------------------------------------------------
 
     # !! keep only the columns your schema actually needs.
     df_clean = df_filtered.select(
@@ -205,61 +211,45 @@ def filter(df_read):
         func.col("date_added_ts").alias("date_added"),
     )
 
-    # ---------------------------------------------------------
-
-    # print("\nSample of cleaned data:")
-    
     df_clean.show(5, truncate=False)
 
     return df_clean
-# ===============================
 
 
-# ===============================
 def write(cleaned_df):
-    # ----------------------------------------------------------
-    # 5. WRITE -- save as parquet. overwrite = current script get replaced
-    # ----------------------------------------------------------
+    # WRITE -- save as parquet
+    # overwrite = current script gets replaced
     cleaned_df.write.mode("overwrite").parquet(OUTPUT_DIR)
-
-    # print(f"\nWrote cleaned data to {OUTPUT_DIR}")
-# ===============================
-
 
 
 def main():
+    print("\n[2/3] TRANSFORM — cleaning and filtering with Spark\n")
     
     # [1] initialize SparkSession (the entry point)
     spark = SparkSession.builder \
         .appName("SACivicPulseTransform") \
         .getOrCreate()
-    
 #--------------------------------------------------------------------------
-
     # [2] READ 
     df_read = read(spark)
 
-    # total_count = df_read.count()
-    # print(f"----- Loaded {total_count} total rows from all raw files.")
-
+    total_count = df_read.count()
+    print(f"\n Loaded {total_count} total rows from all raw files.\n")
 #--------------------------------------------------------------------------
-
     # [3] FILTER  -- keep only South African rows
     df_filter = filter(df_read)
 
-    # result_count = df_filter.count()
-    # print(f"Filtered down to {result_count} South African rows "
-    #     f"({result_count / total_count * 100:.2f}% of total).")
-
+    result_count = df_filter.count()
+    print(f" Filtered down to {result_count} South African rows ({result_count / total_count * 100:.2f}% of total).\n")
 #--------------------------------------------------------------------------
-
     # [4] WRITE -- save as parquet (column-oriented binary data storage format)
     write(df_filter)
-
 #--------------------------------------------------------------------------
-
     # [5] end session
     spark.stop()
+
+    print("\n ✓ Wrote data/processed/events\n") # add time taken eg (14s)
+
 
 
 if __name__ == "__main__":
