@@ -6,7 +6,7 @@ VENV := .venv
 PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 CONTAINER_NAME := sa-civic-pulse-db
-SCHEMA := sql/schema.sql
+SCHEMA := resources/schema.sql
 
 .PHONY: install run-test db-setup add-schema run-pipeline db-stop clean db-reset help
 
