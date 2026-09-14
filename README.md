@@ -1,156 +1,202 @@
-SA-Civic-Pulse/
-├── venv/                       # virtual environment (gitignored)
-├── .gitignore
-├── requirements.txt
-├── docker-compose.yml
-├── Makefile                    # your addition — run_docker_test_db target
-├── gdelt_example.py             # exploration script from Day 1
-├── masterfilelist.txt           # gitignored, too large to commit
-├── pipeline/
-│   ├── schema.sql               # DONE — 4 tables: event_time, event_location, event_action_type, event_fact
-│   ├── extract.py                # NOT built yet — today, Day 3
-│   ├── transform_spark.py        # NOT built yet — Day 5-6
-│   └── load.py                    # NOT built yet — Day 7
-├── api/
-│   └── main.py                    # NOT built yet — Day 9
-├── tests/                          # empty
-├── docs/                            # empty — diagrams/README come Day 9-10
+# SA Civic Pulse
 
+A data pipeline that tracks event and sentiment trends across South African provinces,
+built from the [GDELT Project](https://www.gdeltproject.org/)'s global event database.
 
-check out: some results in transform finds south africa in context, not geo country,
-SF is then followed by a number that represents the resolution ie: 1=country, 4=city, 5=state/province
+Built as a Data Engineering elective project to demonstrate ETL pipeline design, star
+schema modelling, containerization, and CI/CD automation — using free tools and a
+dataset with real South African relevance.
 
--------------------------------------------------------------------------------------------------------------------------
+## What it does
 
-WARNING: Using incubator modules: jdk.incubator.vector
-Using Spark's default log4j profile: org/apache/spark/log4j2-defaults.properties
-26/09/05 19:51:08 WARN Utils: Your hostname, BeanMachine, resolves to a loopback address: 127.0.1.1; using 192.168.10.196 instead (on interface wlan0)
-26/09/05 19:51:08 WARN Utils: Set SPARK_LOCAL_IP if you need to bind to another address
-Using Spark's default log4j profile: org/apache/spark/log4j2-defaults.properties
-Setting default log level to "WARN".
-To adjust logging level use sc.setLogLevel(newLevel). For SparkR, use setLogLevel(newLevel).
-/home/zuzubean/Projects/SA-Civic-Pulse/venv/lib/python3.14/site-packages/pyspark/testing/utils.py:127: FutureWarning: PySpark does not yet fully support pandas >= 3.0.0. Some features may not work correctly. It is recommended to use pandas < 3.0.0 for now.
-  require_minimum_pandas_version()
-26/09/05 19:51:09 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
-26/09/05 19:51:12 WARN FileStreamSink: Assume no metadata directory. Error while looking for metadata directory in the path: data/raw/*.export.CSV.
-java.io.FileNotFoundException: File data/raw/*.export.CSV does not exist
-        at org.apache.hadoop.fs.RawLocalFileSystem.deprecatedGetFileStatus(RawLocalFileSystem.java:980)
-        at org.apache.hadoop.fs.RawLocalFileSystem.getFileLinkStatusInternal(RawLocalFileSystem.java:1301)
-        at org.apache.hadoop.fs.RawLocalFileSystem.getFileStatus(RawLocalFileSystem.java:970)
-        at org.apache.hadoop.fs.FilterFileSystem.getFileStatus(FilterFileSystem.java:462)
-        at org.apache.spark.sql.execution.streaming.sinks.FileStreamSink$.hasMetadata(FileStreamSink.scala:58)
-        at org.apache.spark.sql.execution.datasources.DataSource.resolveRelation(DataSource.scala:394)
-        at org.apache.spark.sql.catalyst.analysis.ResolveDataSource.org$apache$spark$sql$catalyst$analysis$ResolveDataSource$$loadV1BatchSource(ResolveDataSource.scala:210)
-        at org.apache.spark.sql.catalyst.analysis.ResolveDataSource$$anonfun$apply$1.$anonfun$applyOrElse$2(ResolveDataSource.scala:62)
-        at scala.Option.getOrElse(Option.scala:201)
-        at org.apache.spark.sql.catalyst.analysis.ResolveDataSource$$anonfun$apply$1.applyOrElse(ResolveDataSource.scala:62)
-        at org.apache.spark.sql.catalyst.analysis.ResolveDataSource$$anonfun$apply$1.applyOrElse(ResolveDataSource.scala:46)
-        at org.apache.spark.sql.catalyst.plans.logical.AnalysisHelper.$anonfun$resolveOperatorsUpWithPruning$3(AnalysisHelper.scala:139)
-        at org.apache.spark.sql.catalyst.trees.CurrentOrigin$.withOrigin(origin.scala:107)
-        at org.apache.spark.sql.catalyst.plans.logical.AnalysisHelper.$anonfun$resolveOperatorsUpWithPruning$1(AnalysisHelper.scala:139)
-        at org.apache.spark.sql.catalyst.plans.logical.AnalysisHelper$.allowInvokingTransformsInAnalyzer(AnalysisHelper.scala:416)
-        at org.apache.spark.sql.catalyst.plans.logical.AnalysisHelper.resolveOperatorsUpWithPruning(AnalysisHelper.scala:135)
-        at org.apache.spark.sql.catalyst.plans.logical.AnalysisHelper.resolveOperatorsUpWithPruning$(AnalysisHelper.scala:131)
-        at org.apache.spark.sql.catalyst.plans.logical.LogicalPlan.resolveOperatorsUpWithPruning(LogicalPlan.scala:37)
-        at org.apache.spark.sql.catalyst.plans.logical.AnalysisHelper.resolveOperatorsUp(AnalysisHelper.scala:112)
-        at org.apache.spark.sql.catalyst.plans.logical.AnalysisHelper.resolveOperatorsUp$(AnalysisHelper.scala:111)
-        at org.apache.spark.sql.catalyst.plans.logical.LogicalPlan.resolveOperatorsUp(LogicalPlan.scala:37)
-        at org.apache.spark.sql.catalyst.analysis.ResolveDataSource.apply(ResolveDataSource.scala:46)
-        at org.apache.spark.sql.catalyst.analysis.ResolveDataSource.apply(ResolveDataSource.scala:44)
-        at org.apache.spark.sql.catalyst.rules.RuleExecutor.$anonfun$execute$2(RuleExecutor.scala:248)
-        at scala.collection.LinearSeqOps.foldLeft(LinearSeq.scala:183)
-        at scala.collection.LinearSeqOps.foldLeft$(LinearSeq.scala:179)
-        at scala.collection.immutable.List.foldLeft(List.scala:79)
-        at org.apache.spark.sql.catalyst.rules.RuleExecutor.$anonfun$execute$1(RuleExecutor.scala:245)
-        at org.apache.spark.sql.catalyst.rules.RuleExecutor.$anonfun$execute$1$adapted(RuleExecutor.scala:237)
-        at scala.collection.immutable.List.foreach(List.scala:323)
-        at org.apache.spark.sql.catalyst.rules.RuleExecutor.execute(RuleExecutor.scala:237)
-        at org.apache.spark.sql.catalyst.analysis.Analyzer.super$execute(Analyzer.scala:438)
-        at org.apache.spark.sql.catalyst.analysis.Analyzer.$anonfun$executeSameContext$1(Analyzer.scala:438)
-        at org.apache.spark.sql.internal.SQLConf$.withExistingConf(SQLConf.scala:171)
-        at org.apache.spark.sql.catalyst.analysis.Analyzer.runWithSessionConf(Analyzer.scala:400)
-        at org.apache.spark.sql.catalyst.analysis.Analyzer.org$apache$spark$sql$catalyst$analysis$Analyzer$$executeSameContext(Analyzer.scala:438)
-        at org.apache.spark.sql.catalyst.analysis.Analyzer.$anonfun$execute$1(Analyzer.scala:433)
-        at org.apache.spark.sql.catalyst.analysis.AnalysisContext$.withNewAnalysisContext(Analyzer.scala:276)
-        at org.apache.spark.sql.catalyst.analysis.Analyzer.execute(Analyzer.scala:433)
-        at org.apache.spark.sql.catalyst.analysis.Analyzer.execute(Analyzer.scala:336)
-        at org.apache.spark.sql.catalyst.rules.RuleExecutor.$anonfun$executeAndTrack$1(RuleExecutor.scala:207)
-        at org.apache.spark.sql.catalyst.QueryPlanningTracker$.withTracker(QueryPlanningTracker.scala:89)
-        at org.apache.spark.sql.catalyst.rules.RuleExecutor.executeAndTrack(RuleExecutor.scala:207)
-        at org.apache.spark.sql.catalyst.analysis.resolver.HybridAnalyzer.resolveInFixedPoint(HybridAnalyzer.scala:273)
-        at org.apache.spark.sql.catalyst.analysis.resolver.HybridAnalyzer.$anonfun$apply$1(HybridAnalyzer.scala:82)
-        at org.apache.spark.sql.catalyst.analysis.resolver.HybridAnalyzer.withTrackedAnalyzerBridgeState(HybridAnalyzer.scala:117)
-        at org.apache.spark.sql.catalyst.analysis.resolver.HybridAnalyzer.apply(HybridAnalyzer.scala:75)
-        at org.apache.spark.sql.catalyst.analysis.Analyzer.runAnalysis$1(Analyzer.scala:368)
-        at org.apache.spark.sql.catalyst.analysis.Analyzer.$anonfun$executeAndCheck$2(Analyzer.scala:373)
-        at org.apache.spark.sql.internal.SQLConf$.withExistingConf(SQLConf.scala:171)
-        at org.apache.spark.sql.catalyst.analysis.Analyzer.runWithSessionConf(Analyzer.scala:400)
-        at org.apache.spark.sql.catalyst.analysis.Analyzer.$anonfun$executeAndCheck$1(Analyzer.scala:373)
-        at org.apache.spark.sql.catalyst.plans.logical.AnalysisHelper$.markInAnalyzer(AnalysisHelper.scala:423)
-        at org.apache.spark.sql.catalyst.analysis.Analyzer.executeAndCheck(Analyzer.scala:373)
-        at org.apache.spark.sql.execution.QueryExecution.$anonfun$lazyAnalyzed$2(QueryExecution.scala:200)
-        at org.apache.spark.sql.catalyst.QueryPlanningTracker.measurePhase(QueryPlanningTracker.scala:148)
-        at org.apache.spark.sql.execution.QueryExecution.$anonfun$executePhase$3(QueryExecution.scala:410)
-        at org.apache.spark.sql.execution.QueryExecution.withQueryExecutionId(QueryExecution.scala:429)
-        at org.apache.spark.sql.execution.QueryExecution.$anonfun$executePhase$2(QueryExecution.scala:410)
-        at org.apache.spark.sql.execution.QueryExecution$.withInternalError(QueryExecution.scala:872)
-        at org.apache.spark.sql.execution.QueryExecution.$anonfun$executePhase$1(QueryExecution.scala:409)
-        at org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:810)
-        at org.apache.spark.sql.execution.QueryExecution.executePhase(QueryExecution.scala:408)
-        at org.apache.spark.sql.execution.QueryExecution.$anonfun$lazyAnalyzed$1(QueryExecution.scala:200)
-        at scala.util.Try$.apply(Try.scala:217)
-        at org.apache.spark.util.Utils$.doTryWithCallerStacktrace(Utils.scala:1407)
-        at org.apache.spark.util.LazyTry.tryT$lzycompute(LazyTry.scala:46)
-        at org.apache.spark.util.LazyTry.tryT(LazyTry.scala:46)
-        at org.apache.spark.util.LazyTry.get(LazyTry.scala:61)
-        at org.apache.spark.sql.execution.QueryExecution.$anonfun$analyzed$1(QueryExecution.scala:212)
-        at org.apache.spark.sql.execution.QueryExecution.withAbortTransactionOnFailure(QueryExecution.scala:632)
-        at org.apache.spark.sql.execution.QueryExecution.analyzed(QueryExecution.scala:212)
-        at org.apache.spark.sql.execution.QueryExecution.assertAnalyzed(QueryExecution.scala:151)
-        at org.apache.spark.sql.classic.Dataset$.$anonfun$ofRows$1(Dataset.scala:114)
-        at org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:810)
-        at org.apache.spark.sql.classic.Dataset$.ofRows(Dataset.scala:112)
-        at org.apache.spark.sql.classic.DataFrameReader.load(DataFrameReader.scala:109)
-        at org.apache.spark.sql.classic.DataFrameReader.load(DataFrameReader.scala:58)
-        at org.apache.spark.sql.DataFrameReader.csv(DataFrameReader.scala:392)
-        at org.apache.spark.sql.classic.DataFrameReader.csv(DataFrameReader.scala:259)
-        at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
-        at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-        at py4j.reflection.MethodInvoker.invoke(MethodInvoker.java:244)
-        at py4j.reflection.ReflectionEngine.invoke(ReflectionEngine.java:374)
-        at py4j.Gateway.invoke(Gateway.java:282)
-        at py4j.commands.AbstractCommand.invokeMethod(AbstractCommand.java:132)
-        at py4j.commands.CallCommand.execute(CallCommand.java:79)
-        at py4j.ClientServerConnection.waitForCommands(ClientServerConnection.java:184)
-        at py4j.ClientServerConnection.run(ClientServerConnection.java:108)
-        at java.base/java.lang.Thread.run(Thread.java:1583)
-Loaded 738763 total rows from all raw files.                                    
-Filtered down to 6333 South African rows (0.86% of total).                      
+GDELT scans global news coverage every 15 minutes and extracts structured "events"
+(who did what to whom, where, and how the coverage read). This project filters that
+firehose down to events located in South Africa, cleans and categorizes them, and
+serves them through a REST API — letting you ask questions like "how is sentiment
+trending in Gauteng this year?" or "what are the most common event types reported
+in the Western Cape?"
 
-Geocoding granularity breakdown (ActionGeo_Type):
-+--------------+-----+                                                          
-|ActionGeo_Type|count|
-+--------------+-----+
-|             1| 1280|
-|             4| 4684|
-|             5|  369|
-+--------------+-----+
+## Tech stack
 
+| Tool | Role |
+|---|---|
+| **GDELT** | Raw data source (free, updated every 15 minutes) |
+| **PySpark** | Filters and cleans millions of global rows down to South African events |
+| **Docker + Postgres** | Local data warehouse (star schema) |
+| **FastAPI** | REST API serving the cleaned data |
+| **GitHub Actions** | CI (tests on every push) + scheduled pipeline runs |
 
-Sample of cleaned data:
-+---------------+----------+----+-----+-------+---------------+---------+--------------------+---------------+---------------+----------+--------------------------------+-----------+--------------+-----------+--------------+---------------
-|global_event_id|sql_date  |year|month|quarter|action_geo_type|adm1_code|action_geo_full_name|cameo_root_code|cameo_base_code|quad_class|category_label                  |actor1_name|actor1_country|actor2_name|actor2_country|goldstein_scale|avg_tone  |num_mentions|num_sources|num_articles|source_url                                                                                                         |date_added         |
-+---------------+----------+----+-----+-------+---------------+---------+--------------------+---------------+---------------+----------+--------------------------------+-----------+--------------+-----------+--------------+---------------
-|1261181205     |2025-09-04|2025|9    |3      |1              |SF       |South Africa        |01             |012            |1         |Make Public Statement           |NULL       |NULL          |SCHOOL     |NULL          |-0.4           |-2.3284998|5           |1          |5           |https://www.psychiatrictimes.com/view/the-august-2025-special-report-diversity                                     |2025-09-04 00:00:00|
-|1261181225     |2025-09-04|2025|9    |3      |1              |SF       |South Africa        |05             |051            |1         |Engage in Diplomatic Cooperation|NULL       |NULL          |SCHOOL     |NULL          |3.4            |-2.3284998|5           |1          |5           |https://www.psychiatrictimes.com/view/the-august-2025-special-report-diversity                                     |2025-09-04 00:00:00|
-|1261182173     |2025-09-04|2025|9    |3      |1              |SF       |South Africa        |02             |020            |1         |Appeal                          |STUDENT    |NULL          |NULL       |NULL          |3.0            |3.164557  |10          |1          |10          |https://www.opportunitiesforafricans.com/absa-fellowship-programme-2026-for-undergraduates-studies-in-south-africa/|2025-09-04 00:00:00|
-|1261182177     |2025-09-04|2025|9    |3      |1              |SF       |South Africa        |03             |036            |1         |Express Intent to Cooperate     |STUDENT    |NULL          |NULL       |NULL          |4.0            |3.164557  |5           |1          |5           |https://www.opportunitiesforafricans.com/absa-fellowship-programme-2026-for-undergraduates-studies-in-south-africa/|2025-09-04 00:00:00|
-|1261070992     |2025-09-03|2025|9    |3      |1              |SF       |South Africa        |03             |036            |1         |Express Intent to Cooperate     |WEST BANK  |PSE           |NULL       |NULL          |4.0            |-4.716981 |4           |1          |4           |https://www.globalsecurity.org/military/library/news/2025/09/mil-250902-presstv09.htm                              |2025-09-03 12:30:00|
-+---------------+----------+----+-----+-------+---------------+---------+--------------------+---------------+---------------+----------+--------------------------------+-----------+--------------+-----------+--------------+---------------
-only showing top 5 rows
-26/09/05 19:51:24 WARN MemoryManager: Total allocation exceeds 95,00% (1 020 054 720 bytes) of heap memory
-Scaling row group sizes to 95,00% for 8 writers
-26/09/05 19:51:26 WARN MemoryManager: Total allocation exceeds 95,00% (1 020 054 720 bytes) of heap memory
-Scaling row group sizes to 95,00% for 8 writers
-                                                                                
-Wrote cleaned data to data/processed/events
+## Architecture
+
+```
+GDELT files (raw, HTTP)
+   ↓ extract.py
+data/raw/ (local, gitignored)
+   ↓ transform.py (PySpark)
+data/processed/ (parquet, cleaned + filtered to South Africa)
+   ↓ load.py
+Postgres (Docker) — star schema warehouse
+   ↓ serve
+FastAPI — REST endpoints
+   ↑ orchestrated/scheduled by
+GitHub Actions (CI on push + scheduled pipeline runs)
+```
+
+## Database schema
+
+One row per GDELT event mention, linked to three dimension tables:
+
+```mermaid
+ER Diagram
+    event_fact }o--|| event_time : occurs_on
+    event_fact }o--|| event_location : happens_in
+    event_fact }o--|| event_action_type : classified_as
+    event_fact {
+        bigint global_event_id PK
+        int date_key FK
+        int location_id FK
+        int event_type_id FK
+        text actor1_name
+        text actor2_name
+        double avg_tone
+        double goldstein_scale
+    }
+    event_time {
+        int date_key PK
+        date sql_date
+        int year
+        int month
+    }
+    event_location {
+        int location_id PK
+        text adm1_code
+        text province_name
+        text country_code
+    }
+    event_action_type {
+        int event_type_id PK
+        text cameo_root_code
+        text cameo_base_code
+        int quad_class
+        text category_label
+    }
+```
+
+## Environment variables
+
+The project reads its database credentials from a `.env` file at the project root
+(used by both `compose.yml` and the Python scripts). Copy the template and
+adjust if needed:
+
+```bash
+cp .env.example .env
+```
+
+.env should contain:
+
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5050
+POSTGRES_DB=sa_civic_pulse
+POSTGRES_USER=admin
+POSTGRES_PASSWORD=db_password
+
+## Getting masterfilelist.txt
+
+`extract.py` reads from a file called `masterfilelist.txt`, which is GDELT's own
+index of every 15-minute data file it has ever published. This must be downloaded manually due to how large the file is, it's a one-time manual step:
+
+1. Go to [gdeltproject.org/data.html#rawdatafiles](https://www.gdeltproject.org/data.html#rawdatafiles)
+2. Under the GDELT 2.0 section, click **"Master CSV Data File List – English"**
+3. Save the file as `masterfilelist.txt` in the **project root** (same folder as this README)
+
+Or, directly from a terminal:
+```bash
+curl -o masterfilelist.txt http://data.gdeltproject.org/gdeltv2/masterfilelist.txt
+```
+
+This file is large (tens of MB) and updates every 15 minutes on GDELT's side, so
+it's gitignored rather than committed — re-download it if it's ever missing or you
+want the most current file listing.
+
+## How to run it
+
+**Prerequisites:** Docker, Python 3.10+, Java 17 (required by PySpark).
+
+# 1. Set up and activate your environment file
+```bash
+cp .env.example .env
+source venv/bin/activate
+```
+
+# 2. Create the virtual environment and install dependencies
+```bash
+make install
+```
+
+# 3. Start Postgres and apply the schema
+```bash
+make db-setup
+make add-schema
+```
+
+# 4. Run the pipeline (extract -> transform -> load)
+```bash
+make run-pipeline
+```
+
+# 5. Run the API
+```bash
+venv/bin/uvicorn api.main:app --reload
+```
+
+Then visit `http://localhost:8000/docs` for interactive API documentation.
+
+Other useful commands:
+```bash
+make run-test    # run the test suite
+make db-reset    # wipe and reapply the schema (careful -- deletes all loaded data)
+make db-stop     # stop the Postgres container
+make clean       # remove downloaded/processed data files
+make help        # list all available commands
+```
+
+## Why these choices
+
+**Why Spark, not pandas.** Several free South African datasets were considered first
+(Municipal Money, SAPS crime stats, EskomSePush). Municipal Money in particular is a
+clean, current, real API — but at tens of thousands of rows, using Spark on it would
+be over-engineering for the sake of it. GDELT is different: a single week of raw
+files here totals ~740,000 global rows, of which South Africa makes up roughly
+0.5–0.9%. Scaled to a full year, that's tens of millions of global rows Spark has to
+filter through to extract a South Africa-specific dataset — genuine justification
+for a distributed processing tool, not just a checkbox technology.
+
+**Why a star schema over a single flat table.** Event type (CAMEO codes) and location
+(province) are both repeated heavily across events — storing them as lookup tables
+instead of repeating text on every row keeps the fact table lean and makes filtering
+by province or category a straightforward join rather than a text match.
+
+**Why the location dimension uses FIPS codes, not ISO.** GDELT encodes country and
+province using FIPS 10-4 codes, not ISO — South Africa is `SF`, not `ZA`. Verified
+directly against the GDELT Event Database Codebook and confirmed against real
+downloaded data before building the schema around it.
+
+## Known limitations
+
+- **Duplicate event mentions.** GDELT records one row per article, not one row per
+  real-world event — multiple articles covering the same incident produce multiple
+  rows with near-identical fields. This project does not attempt to deduplicate
+  these (see the project's GitLab issue tracker for the full reasoning); the schema
+  keys on the raw `global_event_id`, so a "number of events" count reflects article
+  volume, not necessarily distinct real-world incidents. Sentiment/tone trends are
+  less affected by this, since duplicate rows for the same event carry similar tone.
+
+- **Geocoding granularity varies.** Roughly 20% of South African rows only resolve
+  to country level (no specific province), rather than city or province level. These
+  are represented in `event_location` as a fallback `'SF'` / "Unknown / National"
+  row rather than dropped.
+
+- **Not all "South Africa" rows are domestic South African news.** GDELT tags events
+  by where they're geographically referenced, not strictly where the story is "about."
+  A small number of rows are global stories (e.g. international relations coverage)
+  that happen to mention South Africa.
