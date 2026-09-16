@@ -8,7 +8,7 @@ PIP := $(VENV)/bin/pip
 CONTAINER_NAME := sa-civic-pulse-db
 SCHEMA := resources/schema.sql
 
-.PHONY: install run-test db-setup add-schema run-pipeline db-stop clean db-reset help
+.PHONY: install run-test db-setup add-schema run-pipeline db-stop clean docker-clean db-reset help
 
 
 install:
@@ -66,6 +66,9 @@ clean:
 	docker exec -i $(CONTAINER_NAME) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
 	docker compose up -d --force-recreate
 
+docker-clean:
+	@echo "-X Remove sa-sivic-pulse-db X-"
+	docker rm -f sa-civic-pulse-db
 
 help:
 	@echo "Available commands:"
@@ -75,3 +78,4 @@ help:
 	@echo "  make postgres-stop    Stop PostgreSQL"
 	@echo "  make run-pipeline     Run ETL pipeline"
 	@echo "  make clean            Remove generated files"
+	@echo "  make docker-clean     Remove database from container"
