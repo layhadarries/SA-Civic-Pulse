@@ -1,4 +1,4 @@
-include .env
+-include .env
 export 
 
 
@@ -53,7 +53,7 @@ db-reset: db-setup
 # ----------------------- API -----------------------
 
 run-api:
-	@echo "[9]...Running API..."
+	@echo "...Running API..."
 	$(VENV)/bin/uvicorn api.main:app --reload
 
 #----------------------------------------------------
