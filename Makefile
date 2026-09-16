@@ -12,11 +12,11 @@ SCHEMA := resources/schema.sql
 
 
 install:
-	@echo "[2]...Installing dependencies..."
-	@pip install -r requirements.txt
+	@echo "...Installing dependencies..."
+	@$(PIP) install -r requirements.txt
 
 run-test:
-	@echo "[2]...Running test files..."
+	@echo "...Running test files..."
 	@$(PYTHON) -m pytest tests/ -v
 
 # -------------- Docker and PostgreSQL --------------
@@ -32,9 +32,9 @@ add-schema: db-setup
 
 # ETL pipeline
 run-pipeline:
-	@python3 pipeline/extract.py
-	@python3 pipeline/transform.py
-	@python3 pipeline/load.py
+	@$(PYTHON) pipeline/extract.py
+	@$(PYTHON) pipeline/transform.py
+	@$(PYTHON) pipeline/load.py
 
 db-stop:
 	@echo "...Stopping PostgreSQL..."
@@ -50,10 +50,11 @@ db-reset: db-setup
 	@echo "...Applying schema..."
 	@docker exec -i $(CONTAINER_NAME) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) < $(SCHEMA)
 
-#----------------------------------------------------
+# ----------------------- API -----------------------
 
-# run-api:
-# 	@echo "[9]...Running API..."
+run-api:
+	@echo "[9]...Running API..."
+	$(VENV)/bin/uvicorn api.main:app --reload
 
 #----------------------------------------------------
 
@@ -74,5 +75,3 @@ help:
 	@echo "  make postgres-stop    Stop PostgreSQL"
 	@echo "  make run-pipeline     Run ETL pipeline"
 	@echo "  make clean            Remove generated files"
-
-#----------------------------------------------------
