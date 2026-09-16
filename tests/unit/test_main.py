@@ -9,15 +9,12 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-# Import app from your module path (e.g., api.main or main)
 from api.main import app
 
 client = TestClient(app)
 
 
-# --------------------------------------------------------------------
-# 1. Root & Documentation
-# --------------------------------------------------------------------
+# root
 def test_root_endpoint():
     response = client.get("/")
     assert response.status_code == 200
@@ -25,9 +22,7 @@ def test_root_endpoint():
     assert "SA Civic Pulse API" in response.json()["message"]
 
 
-# --------------------------------------------------------------------
-# 2. GET /events
-# --------------------------------------------------------------------
+# > GET /events
 @patch("api.main.run_query")
 def test_get_events_default(mock_run_query):
     mock_run_query.return_value = [
@@ -51,7 +46,7 @@ def test_get_events_default(mock_run_query):
     assert len(data) == 1
     assert data[0]["global_event_id"] == 1320689300
 
-    # Ensure run_query was executed with default limit parameter 50
+    # assert run_query to execute limit parameter 50
     mock_run_query.assert_called_once()
     sql_arg, params_arg = mock_run_query.call_args[0]
     assert 50 in params_arg
@@ -75,14 +70,12 @@ def test_get_events_with_filters(mock_run_query):
 
 
 def test_get_events_limit_exceeded_validation():
-    # Schema defines Query(50, le=500). limit=501 must trigger a 422 Unprocessable Entity
+    # schema defines Query(50, le=500). limit=501 must trigger a 422 Unprocessable Entity
     response = client.get("/events?limit=501")
     assert response.status_code == 422
 
 
-# --------------------------------------------------------------------
-# 3. GET /provinces
-# --------------------------------------------------------------------
+# > GET /provinces
 @patch("api.main.run_query")
 def test_get_provinces(mock_run_query):
     mock_run_query.return_value = [
@@ -100,9 +93,7 @@ def test_get_provinces(mock_run_query):
     assert params_arg == (100,)
 
 
-# --------------------------------------------------------------------
-# 4. GET /event-types/top
-# --------------------------------------------------------------------
+## > GET /event-types/top
 @patch("api.main.run_query")
 def test_get_top_event_types(mock_run_query):
     mock_run_query.return_value = [
@@ -121,9 +112,7 @@ def test_get_top_event_types(mock_run_query):
     assert 2 in params_arg
 
 
-# --------------------------------------------------------------------
-# 5. GET /events/count
-# --------------------------------------------------------------------
+# > GET /events/count
 @patch("api.main.run_query")
 def test_get_events_count(mock_run_query):
     mock_run_query.return_value = {"total_events": 1284}
@@ -138,9 +127,7 @@ def test_get_events_count(mock_run_query):
     assert kwargs.get("fetch_one") is True
 
 
-# --------------------------------------------------------------------
-# 6. GET /events/{event_id}
-# --------------------------------------------------------------------
+# > GET /events/{event_id}
 @patch("api.main.run_query")
 def test_get_event_by_id_found(mock_run_query):
     mock_run_query.return_value = {
@@ -185,6 +172,6 @@ def test_get_event_by_id_not_found(mock_run_query):
 
 
 def test_get_event_by_id_invalid_type():
-    # If the user passes a string instead of an int in the path, FastAPI returns 422
+    # if user passes a string instead of int, FastAPI returns 422
     response = client.get("/events/not-a-number")
     assert response.status_code == 422
