@@ -219,7 +219,12 @@ def filter(df_read):
 def write(cleaned_df):
     # WRITE -- save as parquet
     # overwrite = current script gets replaced
-    cleaned_df.write.mode("overwrite").parquet(OUTPUT_DIR)
+    # coalesce -> drop our 8 partitions to 4 before saving
+    # prevent an Out Of Memory (OOM) crash
+    cleaned_df.coalesce(4) \
+              .write \
+              .mode("overwrite") \
+              .parquet(OUTPUT_DIR)
 
 
 def main():
