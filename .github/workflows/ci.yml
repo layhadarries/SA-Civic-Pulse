@@ -20,6 +20,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Create environment file
+        run: touch .env
+
       - name: Install dependencies
         run: make install
 
