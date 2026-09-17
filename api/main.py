@@ -26,8 +26,11 @@ from typing import Optional
 import psycopg2
 import psycopg2.extras
 from fastapi import FastAPI, Query, HTTPException, Path
+import logging
 
 app = FastAPI(title="SA Civic Pulse API")
+
+logger = logging.getLogger(os.getenv("POSTGRES_DB"))
 
 
 DB_CONFIG = {
@@ -44,6 +47,13 @@ def run_query(sql: str, params: Optional[list | tuple] = None, fetch_one: bool =
 
      # POSGRES CONNECT start up
     conn = psycopg2.connect(**DB_CONFIG)
+
+    try:
+        conn = psycopg2.connect(**DB_CONFIG)
+    except psycopg2.OperationalError as e:
+        logger.error(f"Could not connect to Postgres: {e}")
+        raise HTTPException(status_code = 503,
+                            detail = "Database is currently unavailable")
 
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
