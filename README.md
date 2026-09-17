@@ -1,6 +1,6 @@
 # SA Civic Pulse
 
-A data pipeline that tracks event and sentiment trends across South African provinces,
+A data pipeline that tracks events across South African provinces,
 built from the [GDELT Project](https://www.gdeltproject.org/)'s global event database.
 
 Built as a Data Engineering elective project to demonstrate ETL pipeline design, star
@@ -151,7 +151,7 @@ make run-pipeline
 
 # 5. Run the API
 ```bash
-.venv/bin/uvicorn api.main:app --reload
+make run-api
 ```
 
 Then visit `http://localhost:8000/docs` for interactive API documentation.
