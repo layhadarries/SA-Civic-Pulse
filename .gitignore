@@ -1,6 +1,7 @@
+.env
+.venv/
 masterfilelist.txt
 data/
-.env
 api/__pycache__
-.venv/
 tests/**/__pycache__
+pipeline/__pycache__
