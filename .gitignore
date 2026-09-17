@@ -5,3 +5,4 @@ data/
 api/__pycache__
 tests/**/__pycache__
 pipeline/__pycache__
+.pytest_cache
